@@ -10,7 +10,7 @@
 #define ADS1115_DEBUG_LEVEL ESP_LOG_DEBUG
 
 /* Device Address -------------------------------- */
-#define ADS1115_DEF_DEV_ADR 0b1001000 >> 1 // 0x48
+#define ADS1115_DEF_DEV_ADR 0x48 // ADDR pin connected to GND
 
 /* Address Pointer Register ---------------------- */
 #define ADS1115_REG_CONV                  0x00
@@ -27,7 +27,7 @@
 #define ADS1115_CFG_MS_OS_ACTIVE          0x8000  // when reading, 1 is busy, 0 is ready. When writing, starts a covnersion from powerdown state
 #define ADS1115_CFG_MS_MUX_OMASK          0x8F00  // mask out
 
-// inline functions pass these defintions, so are shifted instead of an uint16 argument
+// inline functions pass these defintions, so they are shifted instead of an uint16 argument
 #define ADS1115_CFG_MS_MUX_DIFF_AIN0_AIN1 0x00    // default
 #define ADS1115_CFG_MS_MUX_DIFF_AIN0_AIN3 0x10
 #define ADS1115_CFG_MS_MUX_DIFF_AIN1_AIN3 0x20
@@ -71,16 +71,16 @@
 
 #define BYTES_INT(A,B) (((A << 8) & 0xFF00) | B)
 
+#define ADS_W_BUFF_SIZE 3
 #define ADS_RW_BUFF_SIZE 2
+#define I2C_PORT_NUM_0 -1
+#define I2C_MASTER_SCL_IO 9
+#define I2C_MASTER_SDA_IO 8
 
-typedef struct {
-   uint16_t reg_cfg;
-   uint8_t rw_buff[ADS_RW_BUFF_SIZE];
-   uint8_t dev_addr;
-} ads1115_t;
+typedef i2c_device_config_t ads1115_t;
 
-esp_err_t ADS1115_initiate(ads1115_t *cfg);
-esp_err_t ADS1115_set_config(ads1115_t *cfg);
+esp_err_t ADS1115_initiate(int sda_io_num, int scl_io_num);
+esp_err_t ADS1115_add_device(ads1115_t *cfg, i2c_master_dev_handle_t *dev_handle);
 
 int16_t ADS1115_get_conversion();
 bool ADS1115_get_conversion_state();
