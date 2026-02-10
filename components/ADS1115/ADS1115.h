@@ -5,6 +5,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <esp_err.h>
+#include "driver/i2c_master.h"
+#include <stdio.h>
+#include "driver/i2c_master.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <esp_log.h>
+#include <string.h>
 
 /* ESP32 Specifics ------------------------------- */
 #define ADS1115_DEBUG_LEVEL ESP_LOG_DEBUG
@@ -77,28 +84,28 @@
 #define I2C_MASTER_SCL_IO 9
 #define I2C_MASTER_SDA_IO 8
 
-typedef i2c_device_config_t ads1115_t;
+typedef i2c_master_dev_handle_t ads1115_t;
 
-esp_err_t ADS1115_initiate(int sda_io_num, int scl_io_num);
-esp_err_t ADS1115_add_device(ads1115_t *cfg, i2c_master_dev_handle_t *dev_handle);
+esp_err_t ADS1115_initialize(int sda_io_num, int scl_io_num);
+esp_err_t ADS1115_add_device(uint8_t dev_addr, i2c_master_dev_handle_t *dev_handle);
 
-int16_t ADS1115_get_conversion();
-bool ADS1115_get_conversion_state();
+int16_t ADS1115_get_conversion(i2c_master_dev_handle_t dev_handle);
+uint16_t ADS1115_read_pin(i2c_master_dev_handle_t dev_handle, uint8_t pin);
+bool ADS1115_get_conversion_state(i2c_master_dev_handle_t dev_handle);
 
-esp_err_t ADS1115_request_by_definition(uint8_t def);
-esp_err_t ADS1115_set_thresh_by_definition(uint8_t thresh, uint16_t val);
+esp_err_t ADS1115_request_by_definition(i2c_master_dev_handle_t dev_handle, uint8_t def);
+esp_err_t ADS1115_set_thresh_by_definition(i2c_master_dev_handle_t dev_handle, uint8_t thresh, uint16_t val);
 
-static inline esp_err_t ADS1115_set_lo_thresh(uint16_t value) { return ADS1115_set_thresh_by_definition(ADS1115_REG_LO_THRESH, value); };
-static inline esp_err_t ADS1115_set_hi_thresh(uint16_t value) { return ADS1115_set_thresh_by_definition(ADS1115_REG_HI_THRESH, value); };
+static inline esp_err_t ADS1115_set_lo_thresh(i2c_master_dev_handle_t dev_handle, uint16_t value) { return ADS1115_set_thresh_by_definition(dev_handle, ADS1115_REG_LO_THRESH, value); };
+static inline esp_err_t ADS1115_set_hi_thresh(i2c_master_dev_handle_t dev_handle, uint16_t value) { return ADS1115_set_thresh_by_definition(dev_handle, ADS1115_REG_HI_THRESH, value); };
+static inline esp_err_t ADS1115_request_single_ended_AIN0(i2c_master_dev_handle_t dev_handle) { return ADS1115_request_by_definition(dev_handle, ADS1115_CFG_MS_MUX_SNGL_AIN0_GND); };
+static inline esp_err_t ADS1115_request_single_ended_AIN1(i2c_master_dev_handle_t dev_handle) { return ADS1115_request_by_definition(dev_handle, ADS1115_CFG_MS_MUX_SNGL_AIN1_GND); };
+static inline esp_err_t ADS1115_request_single_ended_AIN2(i2c_master_dev_handle_t dev_handle) { return ADS1115_request_by_definition(dev_handle, ADS1115_CFG_MS_MUX_SNGL_AIN2_GND); };
+static inline esp_err_t ADS1115_request_single_ended_AIN3(i2c_master_dev_handle_t dev_handle) { return ADS1115_request_by_definition(dev_handle, ADS1115_CFG_MS_MUX_SNGL_AIN3_GND); };
 
-static inline esp_err_t ADS1115_request_single_ended_AIN0() { return ADS1115_request_by_definition(ADS1115_CFG_MS_MUX_SNGL_AIN0_GND); };
-static inline esp_err_t ADS1115_request_single_ended_AIN1() { return ADS1115_request_by_definition(ADS1115_CFG_MS_MUX_SNGL_AIN1_GND); };
-static inline esp_err_t ADS1115_request_single_ended_AIN2() { return ADS1115_request_by_definition(ADS1115_CFG_MS_MUX_SNGL_AIN2_GND); };
-static inline esp_err_t ADS1115_request_single_ended_AIN3() { return ADS1115_request_by_definition(ADS1115_CFG_MS_MUX_SNGL_AIN3_GND); };
-
-static inline esp_err_t ADS1115_request_diff_AIN0_AIN1() { return ADS1115_request_by_definition(ADS1115_CFG_MS_MUX_DIFF_AIN0_AIN1); };
-static inline esp_err_t ADS1115_request_diff_AIN0_AIN3() { return ADS1115_request_by_definition(ADS1115_CFG_MS_MUX_DIFF_AIN0_AIN3); };
-static inline esp_err_t ADS1115_request_diff_AIN1_AIN3() { return ADS1115_request_by_definition(ADS1115_CFG_MS_MUX_DIFF_AIN1_AIN3); };
-static inline esp_err_t ADS1115_request_diff_AIN2_AIN3() { return ADS1115_request_by_definition(ADS1115_CFG_MS_MUX_DIFF_AIN2_AIN3); };
+static inline esp_err_t ADS1115_request_diff_AIN0_AIN1(i2c_master_dev_handle_t dev_handle) { return ADS1115_request_by_definition(dev_handle, ADS1115_CFG_MS_MUX_DIFF_AIN0_AIN1); };
+static inline esp_err_t ADS1115_request_diff_AIN0_AIN3(i2c_master_dev_handle_t dev_handle) { return ADS1115_request_by_definition(dev_handle, ADS1115_CFG_MS_MUX_DIFF_AIN0_AIN3); };
+static inline esp_err_t ADS1115_request_diff_AIN1_AIN3(i2c_master_dev_handle_t dev_handle) { return ADS1115_request_by_definition(dev_handle, ADS1115_CFG_MS_MUX_DIFF_AIN1_AIN3); };
+static inline esp_err_t ADS1115_request_diff_AIN2_AIN3(i2c_master_dev_handle_t dev_handle) { return ADS1115_request_by_definition(dev_handle, ADS1115_CFG_MS_MUX_DIFF_AIN2_AIN3); };
 
 #endif // ADS1115_H

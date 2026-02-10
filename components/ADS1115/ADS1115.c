@@ -1,41 +1,39 @@
 /* Apache License 2.0  | Author Contact: jdwifwaf@gmail.com */
-#include <stdio.h>
-#include "driver/i2c_master.h"
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include <esp_log.h>
-#include <string.h>
-
 #include "ADS1115.h"
 
 static const char *ADS_TAG = "ADS1115";
-static ads1115_t *ads_cfg;
 static i2c_master_bus_handle_t bus_handle = NULL;
-static uint8_t rw_buff[ADS_RW_BUFF_SIZE+1], w_buff[ADS_W_BUFF_SIZE];
+static uint8_t rw_buff[ADS_RW_BUFF_SIZE], w_buff[ADS_W_BUFF_SIZE];
+static uint16_t reg_cfg = ADS1115_CFG_LS_COMP_MODE_TRAD | // Comparator is traditional
+              ADS1115_CFG_LS_COMP_LAT_NON |   // Comparator is non-latching
+              ADS1115_CFG_LS_COMP_POL_LOW |   // Alert is active low
+              ADS1115_CFG_LS_COMP_QUE_DIS |   // Compator is disabled
+              ADS1115_CFG_LS_DR_1600SPS |     // No. of samples to take
+              ADS1115_CFG_MS_MODE_SS; // store the current config register value to modify only the necessary bits when making requests. This is necessary because the config register has bits that are not set by the request functions, such as the PGA and data rate settings. By storing the current value, we can modify only the MUX bits when making a request, without affecting the other settings.
 
-static esp_err_t ADS1115_read_to_rwbuff(uint8_t reg_adr);          // Move these to the header file if you need additional r/w capabilities
-static esp_err_t ADS1115_write_reg(uint16_t val, uint16_t reg);    // Move these to the header file if you need additional r/w capabilities
-static esp_err_t i2c_handle_write(uint8_t dev_adr, uint8_t w_adr, uint8_t w_len, uint8_t *buff) ;
-static esp_err_t i2c_handle_read(uint8_t dev_adr, uint8_t r_adr, uint8_t r_len, uint8_t *buff);
+static esp_err_t ADS1115_read_to_rwbuff(i2c_master_dev_handle_t dev_handle, uint8_t reg_adr);          // Move these to the header file if you need additional r/w capabilities
+static esp_err_t ADS1115_write_reg(i2c_master_dev_handle_t dev_handle, uint16_t val, uint8_t reg);    // Move these to the header file if you need additional r/w capabilities
+static esp_err_t i2c_handle_write(i2c_master_dev_handle_t dev_handle, uint8_t w_adr, uint8_t w_len, uint8_t *buff) ;
+static esp_err_t i2c_handle_read(i2c_master_dev_handle_t dev_handle, uint8_t r_adr, uint8_t r_len, uint8_t *buff);
 
 //inline implementations
-extern inline esp_err_t ADS1115_request_single_ended_AIN0();
-extern inline esp_err_t ADS1115_request_single_ended_AIN1();
-extern inline esp_err_t ADS1115_request_single_ended_AIN2();
-extern inline esp_err_t ADS1115_request_single_ended_AIN3();
+extern inline esp_err_t ADS1115_request_single_ended_AIN0(i2c_master_dev_handle_t dev_handle);
+extern inline esp_err_t ADS1115_request_single_ended_AIN1(i2c_master_dev_handle_t dev_handle);
+extern inline esp_err_t ADS1115_request_single_ended_AIN2(i2c_master_dev_handle_t dev_handle);
+extern inline esp_err_t ADS1115_request_single_ended_AIN3(i2c_master_dev_handle_t dev_handle);
 
-extern inline esp_err_t ADS1115_request_diff_AIN0_AIN1();
-extern inline esp_err_t ADS1115_request_diff_AIN0_AIN3();
-extern inline esp_err_t ADS1115_request_diff_AIN1_AIN3();
-extern inline esp_err_t ADS1115_request_diff_AIN2_AIN3();
+extern inline esp_err_t ADS1115_request_diff_AIN0_AIN1(i2c_master_dev_handle_t dev_handle);
+extern inline esp_err_t ADS1115_request_diff_AIN0_AIN3(i2c_master_dev_handle_t dev_handle);
+extern inline esp_err_t ADS1115_request_diff_AIN1_AIN3(i2c_master_dev_handle_t dev_handle);
+extern inline esp_err_t ADS1115_request_diff_AIN2_AIN3(i2c_master_dev_handle_t dev_handle);
 
-static inline esp_err_t ADS1115_set_lo_thresh(uint16_t value);
-static inline esp_err_t ADS1115_set_hi_thresh(uint16_t value);
+static inline esp_err_t ADS1115_set_lo_thresh(i2c_master_dev_handle_t dev_handle, uint16_t value);
+static inline esp_err_t ADS1115_set_hi_thresh(i2c_master_dev_handle_t dev_handle, uint16_t value);
 
-esp_err_t ADS1115_initiate(int sda_io_num, int scl_io_num)
+esp_err_t ADS1115_initialize(int sda_io_num, int scl_io_num)
 {
     if(bus_handle!= NULL){
-        ESP_LOGW(ADS_TAG, "ADS1115_initiate called more than once. This may cause memory leaks and other issues. Please call ADS1115_initiate only once per device.");
+        ESP_LOGW(ADS_TAG, "ADS1115_initialize called more than once. This may cause memory leaks and other issues. Please call ADS1115_initialize only once per device.");
         return ESP_OK;
     }
     if(sda_io_num < 0 || scl_io_num < 0)
@@ -53,10 +51,8 @@ esp_err_t ADS1115_initiate(int sda_io_num, int scl_io_num)
 
 esp_err_t ADS1115_add_device(uint8_t dev_addr, i2c_master_dev_handle_t *dev_handle)
 {
-    if(!cfg)
-        return ESP_ERR_INVALID_ARG;
     if(bus_handle == NULL){
-        ESP_LOGE(ADS_TAG, "ADS1115_add_device called before ADS1115_initiate. Please call ADS1115_initiate before adding devices.");
+        ESP_LOGE(ADS_TAG, "ADS1115_add_device called before ADS1115_initialization. Please call ADS1115_initialize before adding devices.");
         return ESP_ERR_INVALID_STATE;
     }
     if(dev_handle == NULL){
@@ -71,59 +67,94 @@ esp_err_t ADS1115_add_device(uint8_t dev_addr, i2c_master_dev_handle_t *dev_hand
     return i2c_master_bus_add_device(bus_handle, &dev_cfg, dev_handle);
 }
 
-bool ADS1115_get_conversion_state()
+bool ADS1115_get_conversion_state(i2c_master_dev_handle_t   dev_handle)
 {
-    ADS1115_read_to_rwbuff(ADS1115_REG_CFG);
+    ADS1115_read_to_rwbuff(dev_handle, ADS1115_REG_CFG);
     return (rw_buff[0] & 0x80) ? true : false;
 }
 
-esp_err_t ADS1115_request_by_definition(uint8_t def)
+int16_t ADS1115_get_conversion(i2c_master_dev_handle_t dev_handle)
 {
-    ads_cfg->reg_cfg &= ADS1115_CFG_MS_MUX_OMASK;
-    ads_cfg->reg_cfg |= (def << 8) & 0xFF00;
-    ads_cfg->reg_cfg |= ADS1115_CFG_MS_OS_ACTIVE & 0xFF00;
-    return ADS1115_write_reg(ads_cfg->reg_cfg, ADS1115_REG_CFG);
-}
-
-int16_t ADS1115_get_conversion()
-{
-    ADS1115_read_to_rwbuff(ADS1115_REG_CONV);
+    ADS1115_read_to_rwbuff(dev_handle, ADS1115_REG_CONV);
     return (int16_t)BYTES_INT(rw_buff[0],rw_buff[1]);
 
 }
 
-esp_err_t ADS1115_set_thresh_by_definition(uint8_t thresh, uint16_t val)
+uint16_t ADS1115_read_pin(i2c_master_dev_handle_t dev_handle, uint8_t pin)
+{
+    uint16_t result=0;
+    if(pin > 3)
+        return 0;
+
+    esp_err_t err;
+    switch (pin)
+    {
+    case 0:
+        err = ADS1115_request_single_ended_AIN0(dev_handle);
+        break;
+    case 1:
+        err = ADS1115_request_single_ended_AIN1(dev_handle);
+        break;
+    case 2:
+        err = ADS1115_request_single_ended_AIN2(dev_handle);
+        break;
+    case 3:
+        err = ADS1115_request_single_ended_AIN3(dev_handle);
+        break;
+    default:
+        return ESP_ERR_INVALID_ARG;
+    }
+    if(err != ESP_OK)
+        return err;
+
+    while(!ADS1115_get_conversion_state(dev_handle)){
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    result = ADS1115_get_conversion(dev_handle);
+    return result;
+}
+
+esp_err_t ADS1115_request_by_definition(i2c_master_dev_handle_t dev_handle, uint8_t def)
+{
+    reg_cfg &= ADS1115_CFG_MS_MUX_OMASK;
+    reg_cfg |= (def << 8) & 0xFF00;
+    reg_cfg |= ADS1115_CFG_MS_OS_ACTIVE & 0xFF00;
+    return ADS1115_write_reg(dev_handle, reg_cfg , ADS1115_REG_CFG);
+}
+
+esp_err_t ADS1115_set_thresh_by_definition(i2c_master_dev_handle_t dev_handle, uint8_t thresh, uint16_t val)
 {
     if(thresh != ADS1115_REG_LO_THRESH || thresh != ADS1115_REG_HI_THRESH)
         return ESP_ERR_INVALID_ARG;
 
-    return ADS1115_write_reg(val, thresh);
+    return ADS1115_write_reg(dev_handle, val, thresh);
 }
 
-static esp_err_t ADS1115_write_reg(uint16_t val, uint16_t reg)
+static esp_err_t ADS1115_read_to_rwbuff(i2c_master_dev_handle_t dev_handle, uint8_t reg_adr)
+{
+    return i2c_handle_read(dev_handle, reg_adr, 2, rw_buff);
+}
+
+static esp_err_t ADS1115_write_reg(i2c_master_dev_handle_t dev_handle, uint16_t val, uint8_t reg)
 {
     rw_buff[0] = (uint8_t)(val >> 8) & 0xFF;
     rw_buff[1] = (uint8_t)val & 0xFF;
 
-    return i2c_handle_write(ads_cfg->dev_handle, reg, 2, rw_buff);
+    return i2c_handle_write(dev_handle, reg, 2, rw_buff);
 }
 
-static esp_err_t ADS1115_read_to_rwbuff(uint8_t reg_adr)
-{
-    return i2c_handle_read(ads_cfg->dev_handle, reg_adr, 2, rw_buff);
-}
-
-static esp_err_t i2c_handle_write(i2c_master_dev_handle_t *dev_handle, uint8_t w_adr, uint8_t w_len, uint8_t *buff)
+static esp_err_t i2c_handle_write(i2c_master_dev_handle_t dev_handle, uint8_t w_adr, uint8_t w_len, uint8_t *buff)
 {
     memset(w_buff, 0, ADS_W_BUFF_SIZE);
-    w_buff[0] = 0x01; //pointer to config register(Address Pointer Register)
+    w_buff[0] = w_adr; //pointer to config register(Address Pointer Register)
     memcpy(&w_buff[1], buff, w_len);
 
-    return i2c_master_transmit(*dev_handle, w_buff, ADS_W_BUFF_SIZE, pdMS_TO_TICKS(500));
+    return i2c_master_transmit(dev_handle, w_buff, ADS_W_BUFF_SIZE, pdMS_TO_TICKS(500));
 }
 
-static esp_err_t i2c_handle_read(i2c_master_dev_handle_t *dev_handle, uint8_t *r_adr, uint8_t r_len, uint8_t *buff)
+static esp_err_t i2c_handle_read(i2c_master_dev_handle_t dev_handle, uint8_t r_adr, uint8_t r_len, uint8_t *buff)
 {
     //ADS115 needs the Address Pointer Register to be set before reading, so we write the register address first, then read the data from that register
-    return i2c_master_transmit_receive(*dev_handle, r_adr, 1, buff, r_len, pdMS_TO_TICKS(500));
+    uint8_t addr = r_adr;
+    return i2c_master_transmit_receive(dev_handle, &addr, 1, buff, r_len, pdMS_TO_TICKS(500));
 }
