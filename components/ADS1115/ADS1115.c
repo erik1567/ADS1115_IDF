@@ -9,7 +9,8 @@ static uint16_t reg_cfg = ADS1115_CFG_LS_COMP_MODE_TRAD | // Comparator is tradi
               ADS1115_CFG_LS_COMP_POL_LOW |   // Alert is active low
               ADS1115_CFG_LS_COMP_QUE_DIS |   // Compator is disabled
               ADS1115_CFG_LS_DR_1600SPS |     // No. of samples to take
-              ADS1115_CFG_MS_MODE_SS; // store the current config register value to modify only the necessary bits when making requests. This is necessary because the config register has bits that are not set by the request functions, such as the PGA and data rate settings. By storing the current value, we can modify only the MUX bits when making a request, without affecting the other settings.
+              ADS1115_CFG_MS_MODE_SS |
+              ADS1115_CFG_MS_PGA_FSR_2_048V; 
 
 static esp_err_t ADS1115_read_to_rwbuff(i2c_master_dev_handle_t dev_handle, uint8_t reg_adr);          // Move these to the header file if you need additional r/w capabilities
 static esp_err_t ADS1115_write_reg(i2c_master_dev_handle_t dev_handle, uint16_t val, uint8_t reg);    // Move these to the header file if you need additional r/w capabilities
@@ -113,7 +114,16 @@ uint16_t ADS1115_read_pin(i2c_master_dev_handle_t dev_handle, uint8_t pin)
     result = ADS1115_get_conversion(dev_handle);
     return result;
 }
-
+uint16_t ADS1115_get_config(i2c_master_dev_handle_t dev_handle)
+{
+    ADS1115_read_to_rwbuff(dev_handle, ADS1115_REG_CFG);
+    return BYTES_INT(rw_buff[0], rw_buff[1]);
+}
+esp_err_t ADS1115_set_config(i2c_master_dev_handle_t dev_handle, uint16_t config)
+{
+    reg_cfg = config;
+    return ADS1115_write_reg(dev_handle, config, ADS1115_REG_CFG);
+}
 esp_err_t ADS1115_request_by_definition(i2c_master_dev_handle_t dev_handle, uint8_t def)
 {
     reg_cfg &= ADS1115_CFG_MS_MUX_OMASK;

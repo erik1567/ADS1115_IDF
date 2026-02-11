@@ -3,12 +3,12 @@ ads1115_t ADS1, ADS2;
 void app_main() {
     ADS1115_initialize(8, 9);
     ADS1115_add_device(0x48, &ADS1);
-    ADS1115_add_device(0x49, &ADS2);
+    ADS1115_add_device(0x4A, &ADS2);
     while(1){
         uint16_t result1 = ADS1115_read_pin(ADS1, 0), result2 = ADS1115_read_pin(ADS2, 0);
-        printf("ADC Result 1: %d, ADC Result 2: %d\n", result1, result2);
+        printf("%d;%d\n", result1, result2);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-    }
+    }  
 }
 /*
 #define I2C_PORT_NUM_0 -1

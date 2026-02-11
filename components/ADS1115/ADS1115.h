@@ -44,12 +44,12 @@
 #define ADS1115_CFG_MS_MUX_SNGL_AIN2_GND  0x60
 #define ADS1115_CFG_MS_MUX_SNGL_AIN3_GND  0x70
 
-#define ADS1115_CFG_MS_PGA_FSR_6_144V     0x0000   // only expresses full-scale range of ADC scaling. Do not apply more than VDD + 0.3 V to the analog inputs
-#define ADS1115_CFG_MS_PGA_FSR_4_096V     0x0200   // only expresses full-scale range of ADC scaling. Do not apply more than VDD + 0.3 V to the analog inputs
-#define ADS1115_CFG_MS_PGA_FSR_2_048V     0x0600   // default
-#define ADS1115_CFG_MS_PGA_FSR_1_024V     0x0800
-#define ADS1115_CFG_MS_PGA_FSR_0_512V     0x0C00
-#define ADS1115_CFG_MS_PGA_FSR_0_256V     0x0E00
+#define ADS1115_CFG_MS_PGA_FSR_6_144V     0x0000 
+#define ADS1115_CFG_MS_PGA_FSR_4_096V     0x0200 
+#define ADS1115_CFG_MS_PGA_FSR_2_048V     0x0400 //default
+#define ADS1115_CFG_MS_PGA_FSR_1_024V     0x0600 
+#define ADS1115_CFG_MS_PGA_FSR_0_512V     0x0800 
+#define ADS1115_CFG_MS_PGA_FSR_0_256V     0x0A00 
 #define ADS1115_CFG_MS_MODE_CON           0x0000
 #define ADS1115_CFG_MS_MODE_SS            0x0100
 
@@ -91,6 +91,8 @@ esp_err_t ADS1115_add_device(uint8_t dev_addr, i2c_master_dev_handle_t *dev_hand
 
 int16_t ADS1115_get_conversion(i2c_master_dev_handle_t dev_handle);
 uint16_t ADS1115_read_pin(i2c_master_dev_handle_t dev_handle, uint8_t pin);
+uint16_t ADS1115_get_config(i2c_master_dev_handle_t dev_handle);
+esp_err_t ADS1115_set_config(i2c_master_dev_handle_t dev_handle, uint16_t config);
 bool ADS1115_get_conversion_state(i2c_master_dev_handle_t dev_handle);
 
 esp_err_t ADS1115_request_by_definition(i2c_master_dev_handle_t dev_handle, uint8_t def);
