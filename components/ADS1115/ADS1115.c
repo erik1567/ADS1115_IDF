@@ -31,20 +31,20 @@ extern inline esp_err_t ADS1115_request_diff_AIN2_AIN3(i2c_master_dev_handle_t d
 static inline esp_err_t ADS1115_set_lo_thresh(i2c_master_dev_handle_t dev_handle, uint16_t value);
 static inline esp_err_t ADS1115_set_hi_thresh(i2c_master_dev_handle_t dev_handle, uint16_t value);
 
-esp_err_t ADS1115_initialize(int sda_io_num, int scl_io_num)
+esp_err_t ADS1115_initialize(int SDA_GPIO_PIN, int SCL_GPIO_PIN)
 {
     if(bus_handle!= NULL){
         ESP_LOGW(ADS_TAG, "ADS1115_initialize called more than once. This may cause memory leaks and other issues. Please call ADS1115_initialize only once per device.");
         return ESP_OK;
     }
-    if(sda_io_num < 0 || scl_io_num < 0)
+    if(SDA_GPIO_PIN < 0 || SCL_GPIO_PIN < 0)
         return ESP_ERR_INVALID_ARG;
     esp_log_level_set(ADS_TAG, ADS1115_DEBUG_LEVEL);
     i2c_master_bus_config_t i2c_mst_config = {
     .clk_source = I2C_CLK_SRC_DEFAULT,
     .i2c_port = I2C_PORT_NUM_0,
-    .scl_io_num = scl_io_num,
-    .sda_io_num = sda_io_num,
+    .scl_io_num = SCL_GPIO_PIN,
+    .sda_io_num = SDA_GPIO_PIN,
     .glitch_ignore_cnt = 7,
     };
     return i2c_new_master_bus(&i2c_mst_config, &bus_handle);
@@ -81,9 +81,9 @@ int16_t ADS1115_get_conversion(i2c_master_dev_handle_t dev_handle)
 
 }
 
-uint16_t ADS1115_read_pin(i2c_master_dev_handle_t dev_handle, uint8_t pin)
+int16_t ADS1115_read_pin(i2c_master_dev_handle_t dev_handle, uint8_t pin)
 {
-    uint16_t result=0;
+    int16_t result=0;
     if(pin > 3)
         return 0;
 

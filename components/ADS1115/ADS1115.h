@@ -1,4 +1,4 @@
-/* Apache License 2.0  | Author Contact: jdwifwaf@gmail.com */
+/* Apache License 2.0  | Author Contact: paulcsekerik@gmail.com */
 #ifndef ADS1115_H
 #define ADS1115_H
 
@@ -7,7 +7,6 @@
 #include <esp_err.h>
 #include "driver/i2c_master.h"
 #include <stdio.h>
-#include "driver/i2c_master.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <esp_log.h>
@@ -86,7 +85,7 @@
 
 typedef i2c_master_dev_handle_t ads1115_t;
 
-esp_err_t ADS1115_initialize(int sda_io_num, int scl_io_num);
+esp_err_t ADS1115_initialize(int SDA_GPIO_PIN, int SCL_GPIO_PIN);
 esp_err_t ADS1115_add_device(uint8_t dev_addr, i2c_master_dev_handle_t *dev_handle);
 
 int16_t ADS1115_get_conversion(i2c_master_dev_handle_t dev_handle);
